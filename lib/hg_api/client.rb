@@ -8,18 +8,37 @@ module HGAPI
     HOST = 'carbon.hostedgraphite.com'
     PORT = 2003
 
+    attr_reader :disabled, :settings
+
     def initialize(options = {})
-      @default_transport = check_transport!(options[:via]) || :udp
-      @api_key = ENV["HOSTED_GRAPHITE_API_KEY"]
-      @disabled = @api_key.nil?
+      @settings = build_settings(options)
+      @disabled = @settings[:api_key].nil?
     end
 
     def metric(key, value, options = {})
       return if @disabled
-      send_metric(key, value, check_transport!(options[:via]) || @default_transport)
+      send_metric(key, value, check_transport!(options[:via]) || settings[:default_transport])
+    end
+
+    def time(key, options = {})
+      start = Time.now
+      result = yield
+      metric(key, ((Time.now - start) * 1000).round, options)
+      result
     end
 
     private
+
+    def build_settings(options)
+      {
+        :api_key           => ENV["HOSTED_GRAPHITE_API_KEY"],
+        :host              => ENV["HOSTED_GRAPHITE_HOST"] || HOST,
+        :port              => ENV["HOSTED_GRAPHITE_PORT"] || PORT,
+        :http_uri          => ENV["HOSTED_GRAPHITE_HTTP_URI"] || HTTP_URI,
+        :default_transport => check_transport!(options[:via]) || :udp,
+        :prefix            => options[:prefix]
+      }
+    end
 
     def check_transport!(transport)
       if transport && !SUPPORTED_TRANSPORTS.include?(transport.to_sym)
@@ -34,25 +53,33 @@ module HGAPI
 
     def send_metric_udp(key, value)
       sock = UDPSocket.new
-      sock.send "#{@api_key}.#{key} #{value}\n", 0, HOST, PORT
+      sock.send "#{@settings[:api_key]}.#{prefix}#{key} #{value}\n", 0, @settings[:host], @settings[:port]
       sock.close
     end
 
     def send_metric_tcp(key, value)
-      conn = TCPSocket.new HOST, PORT
-      conn.puts "#{@api_key}.#{key} #{value}\n"
+      conn = TCPSocket.new @settings[:host], @settings[:port]
+      conn.puts "#{@settings[:api_key]}.#{prefix}#{key} #{value}\n"
       conn.close
     end
 
     def send_metric_http(key, value)
-      uri = URI(HTTP_URI)
+      uri = URI(@settings[:http_uri])
 
       req = Net::HTTP::Post.new(uri.request_uri)
-      req.basic_auth @api_key, nil
-      req.body = "#{key} #{value}"
+      req.basic_auth @settings[:api_key], nil
+      req.body = "#{prefix}#{key} #{value}"
 
       res = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
         http.request(req)
+      end
+    end
+
+    def prefix
+      @prefix ||= if settings[:prefix] && !settings[:prefix].empty?
+        Array(settings[:prefix]).join('.') << '.'
+      else
+        ""
       end
     end
   end
