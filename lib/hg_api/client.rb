@@ -8,8 +8,6 @@ module HGAPI
     HOST = 'carbon.hostedgraphite.com'
     PORT = 2003
 
-    attr_reader :disabled, :settings
-
     def initialize(options = {})
       @settings = build_settings(options)
       @disabled = @settings[:api_key].nil?
@@ -17,7 +15,7 @@ module HGAPI
 
     def metric(key, value, options = {})
       return if @disabled
-      send_metric(key, value, check_transport!(options[:via]) || settings[:default_transport])
+      send_metric(key, value, check_transport!(options[:via]) || @settings[:default_transport])
     end
 
     def time(key, options = {})
@@ -76,8 +74,8 @@ module HGAPI
     end
 
     def prefix
-      @prefix ||= if settings[:prefix] && !settings[:prefix].empty?
-        Array(settings[:prefix]).join('.') << '.'
+      @prefix ||= if @settings[:prefix] && !@settings[:prefix].empty?
+        Array(@settings[:prefix]).join('.') << '.'
       else
         ""
       end
