@@ -24,7 +24,7 @@ client.metric("signup", 1)
 client.metric("load", 100, via: :tcp)
 ```
 
-Default transport is udp, it can be changed by passing options hash while
+Default transport is UDP, it can be changed by passing options hash while
 constructing client:
 
 ```ruby
@@ -34,7 +34,21 @@ client.metric("this.metric.send.over.http", 5)
 
 Supported transports: udp, tcp, http.
 
-API KEY must be present as environmental variable HOSTED_GRAPHITE_API_KEY.
+API KEY must be present as environmental variable `HOSTED_GRAPHITE_API_KEY`.
+
+Host and port for UDP also can be configured via env vars, `HOSTED_GRAPHITE_HOST`
+and `HOSTED_GRAPHITE_PORT` respectively, as well as URI for HTTP - `HOSTED_GRAPHITE_PORT`.
+
+Default settings are `carbon.hostedgraphite.com` host and `2003` port, http uri `https://hostedgraphite.com/api/v1/sink`.
+
+Also you can pass prefix, which will be added to each key:
+
+
+```ruby
+client = HGAPI.new(prefix: ["apps", "yourappname"])
+# or:
+client = HGAPI.new(prefix: "apps.yourappname")
+```
 
 ## Contributing
 
