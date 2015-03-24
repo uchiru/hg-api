@@ -3,6 +3,8 @@ require 'net/http'
 
 module HGAPI
   class Client
+    attr_accessor :logger
+
     SUPPORTED_TRANSPORTS = [:udp, :tcp, :http]
     HTTP_URI ="https://hostedgraphite.com/api/v1/sink"
     HOST = 'carbon.hostedgraphite.com'
@@ -15,7 +17,12 @@ module HGAPI
 
     def metric(key, value, options = {})
       return if @disabled
-      send_metric(key, value, check_transport!(options[:via]) || @settings[:default_transport])
+
+      begin
+        send_metric(key, value, check_transport!(options[:via]) || @settings[:default_transport])
+      rescue SocketError => e
+        logger.error "[HG API] #{e.class} #{e.message} while sending metric #{key}" if logger
+      end
     end
 
     def time(key, options = {})
